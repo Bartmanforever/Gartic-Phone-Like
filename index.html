@@ -3,121 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scrum Phone</title>
+    <title>Scrum Phone - Mario Kart Edition</title>
     <style>
         :root {
-            --primary: #6d5dfc; --secondary: #e4ebf5; --accent: #f9ca24;
-            --danger: #ff7675; --dark: #2d3436; --shadow: 8px 8px 16px #d1d9e6, -8px -8px 16px #ffffff;
+            --mk-blue: #0055aa;
+            --mk-light-blue: #00aaff;
+            --mk-yellow: #fff200;
+            --mk-red: #ff0000;
+            --mk-dark: #1a1a1a;
+            --mk-white: #ffffff;
+            --mk-gradient: linear-gradient(180deg, #0055aa 0%, #002244 100%);
         }
 
         body {
-            font-family: 'Segoe UI', sans-serif; background-color: var(--secondary);
-            color: var(--dark); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 140px;
+            font-family: 'Arial Black', sans-serif;
+            background: var(--mk-gradient);
+            background-attachment: fixed;
+            color: var(--mk-white);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding-bottom: 200px;
         }
 
-        #timer-bar { width: 100%; height: 8px; background: #ccc; position: fixed; top: 0; z-index: 1000; }
-        #timer-progress { width: 0%; height: 100%; background: var(--primary); transition: width 1s linear; }
+        /* TIMER MK STYLE - Correction affichage */
+        #timer-container {
+            position: sticky; top: 0; width: 100%; 
+            background: rgba(0, 0, 0, 0.8);
+            border-bottom: 4px solid var(--mk-yellow);
+            z-index: 1000; padding: 15px 0;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        #timer-bar { width: 80%; height: 12px; background: #333; margin: 10px auto; border-radius: 20px; border: 2px solid var(--mk-white); }
+        #timer-progress { width: 0%; height: 100%; background: linear-gradient(90deg, var(--mk-red), var(--mk-yellow)); border-radius: 20px; transition: width 1s linear; }
+        #timer-display { font-size: 3rem; font-weight: 900; color: var(--mk-white); font-style: italic; text-shadow: 3px 3px 0 var(--mk-red); }
 
         .container {
-            width: 90%; max-width: 850px; background: var(--secondary);
-            padding: 2rem; border-radius: 30px; box-shadow: var(--shadow);
-            margin-top: 40px; text-align: center; position: relative;
+            width: 90%; max-width: 850px; 
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 2.5rem; border-radius: 20px; 
+            border: 4px solid var(--mk-white);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-top: 30px; text-align: center;
         }
 
-        input, select {
-            padding: 12px; border: none; border-radius: 10px; background: var(--secondary);
-            box-shadow: inset 2px 2px 5px #b1b9c9, inset -5px -5px 10px #ffffff; margin: 10px; outline: none;
+        h1 {
+            font-size: 3.5rem; color: var(--mk-white); font-style: italic;
+            text-shadow: 4px 4px 0 var(--mk-blue), 8px 8px 0 rgba(0,0,0,0.5);
+            margin-bottom: 30px; transform: skewX(-5deg);
+        }
+
+        /* CONNEXION */
+        .login-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
+        @media (max-width: 600px) { .login-grid { grid-template-columns: 1fr; } }
+        
+        .login-card { 
+            padding: 30px; border-radius: 15px; background: var(--mk-white); color: var(--mk-dark);
+            border: 4px solid var(--mk-blue); box-shadow: 8px 8px 0 rgba(0,0,0,0.2);
+            transition: 0.2s;
+        }
+        .login-card:hover { transform: scale(1.02); }
+        .login-card.admin-zone { border-color: var(--mk-red); }
+        .login-card h2 { margin-top: 0; color: var(--mk-blue); font-style: italic; font-size: 1.8rem; }
+
+        input {
+            padding: 15px; border: 3px solid var(--mk-blue); border-radius: 10px; 
+            background: #f0f0f0; color: #000; margin: 10px 0; outline: none; 
+            font-size: 1.2rem; width: 90%; font-weight: bold;
         }
 
         button {
-            padding: 12px 25px; border: none; border-radius: 15px; background: var(--primary);
-            color: white; font-weight: bold; cursor: pointer;
-            box-shadow: 3px 3px 6px #b8b9be, -3px -3px 6px #ffffff; transition: 0.2s;
+            padding: 18px 30px; border: none; border-radius: 50px; 
+            background: var(--mk-blue); color: white; font-weight: 900; 
+            cursor: pointer; font-size: 1.2rem; text-transform: uppercase; 
+            box-shadow: 0 6px 0 #003366; transition: 0.1s; margin: 10px;
+            font-style: italic;
         }
+        button:active { transform: translateY(4px); box-shadow: 0 2px 0 #003366; }
+        button.btn-admin { background: var(--mk-red); box-shadow: 0 6px 0 #990000; }
+        button.btn-danger { background: #444; box-shadow: 0 6px 0 #222; }
 
-        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
-        button.btn-admin { background: var(--accent); color: var(--dark); }
-        button.btn-danger { background: var(--danger); }
-        button.btn-hard { background: #2d3436; color: white; }
-
+        /* ADMIN PANEL - JAUNE KART */
         #persistent-admin-panel {
-            position: fixed; bottom: 0; left: 0; right: 0; background: #dfe6e9;
-            padding: 15px; box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
-            display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;
-            z-index: 999; border-top: 4px solid var(--accent);
+            position: fixed; bottom: 0; left: 0; right: 0; 
+            background: var(--mk-yellow); color: var(--mk-dark);
+            padding: 20px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+            gap: 20px; z-index: 2000; border-top: 6px solid var(--mk-white);
         }
+        .admin-group { background: var(--mk-white); padding: 12px 25px; border-radius: 10px; border: 3px solid var(--mk-dark); display: flex; align-items: center; gap: 10px; }
+        .reset-zone { border-left: 3px solid rgba(0,0,0,0.1); padding-left: 20px; display: flex; gap: 10px; }
 
         .hidden { display: none !important; }
-        #canvas-container { background: white; border-radius: 20px; margin: 20px auto; width: 500px; box-shadow: inset 2px 2px 10px rgba(0,0,0,0.1); }
-        canvas { border-radius: 20px; touch-action: none; cursor: crosshair; }
+
+        /* ZONE DE DESSIN ET IMAGE : BLANC IMPÉRATIF */
+        #canvas-container { 
+            background: #ffffff !important; 
+            border-radius: 15px; margin: 20px auto; 
+            width: 100%; max-width: 600px; border: 5px solid var(--mk-blue); overflow: hidden;
+        }
+        canvas { touch-action: none; cursor: crosshair; display: block; width: 100%; background: #ffffff !important; }
         
-        .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 15px 0; }
-        .color-dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
-        .color-dot.active { border-color: var(--primary); transform: scale(1.1); }
-        .result-img { max-width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid #ddd; }
+        .result-img { 
+            width: 100%; border-radius: 10px; border: 2px solid #ccc; 
+            background: #ffffff !important; /* Fond blanc pour l'image à deviner */
+            display: block;
+        }
+
+        .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 15px 0; }
+        .color-dot { width: 45px; height: 45px; border-radius: 50%; cursor: pointer; border: 3px solid var(--mk-white); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+        .color-dot.active { border-color: var(--mk-yellow); transform: scale(1.2); }
+        
+        .result-card { 
+            background: var(--mk-white); color: var(--mk-dark); padding: 25px; border-radius: 15px; 
+            margin-bottom: 30px; text-align: left; border-left: 10px solid var(--mk-blue);
+        }
+        .step-info { font-size: 1.2rem; margin: 15px 0; font-weight: bold; color: var(--mk-blue); }
+        .blink { animation: blinker 0.8s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
-    <div id="timer-bar"><div id="timer-progress"></div></div>
+    <div id="timer-container" class="hidden">
+        <div id="timer-display">--</div>
+        <div id="timer-bar"><div id="timer-progress"></div></div>
+    </div>
 
     <div class="container">
-        <h1>📞 Scrum Phone <small style="font-size: 0.4em; opacity: 0.5;"></h1>
+        <h1>SCRUM PHONE</h1>
 
         <div id="screen-login">
-            <input type="text" id="login-name" placeholder="Ton Prénom"><br>
-            <input type="password" id="login-pass" placeholder="Password Admin"><br>
-            <button id="btn-join-player">Joueur</button>
-            <button id="btn-join-admin" class="btn-admin">Admin</button>
+            <div class="login-grid">
+                <div class="login-card">
+                    <h2>🏁 JOUEUR</h2>
+                    <input type="text" id="login-name" placeholder="TON PRÉNOM">
+                    <button id="btn-join-player" style="width: 100%;">C'EST PARTI !</button>
+                </div>
+                <div class="login-card admin-zone">
+                    <h2>🏆 ADMIN</h2>
+                    <input type="text" id="admin-name" placeholder="TON PRÉNOM">
+                    <input type="password" id="admin-pass" placeholder="CODE">
+                    <button id="btn-join-admin" class="btn-admin" style="width: 100%;">MODE HOST</button>
+                </div>
+            </div>
         </div>
 
         <div id="screen-lobby" class="hidden">
-            <div id="player-list" style="margin: 20px 0; font-weight: bold; font-size: 1.1rem;"></div>
-            <p>En attente du lancement...</p>
+            <div id="player-list" style="margin: 30px 0; font-size: 2rem; color: var(--mk-yellow);"></div>
+            <p class="blink" style="font-size: 1.5rem;">EN ATTENTE SUR LA LIGNE DE DÉPART...</p>
         </div>
 
-        <div id="timer-display" class="hidden" style="font-size: 2.5rem; font-weight: bold;">--</div>
-
         <div id="screen-write" class="hidden">
-            <h3>📝 Écris une phrase :</h3>
-            <p id="phrase-suggestion" style="font-style: italic; color: #7f8c8d;"></p>
-            <input type="text" id="input-phrase" placeholder="..." style="width:80%;">
-            <br><button id="btn-submit-phrase">Envoyer</button>
+            <h3>📝 ÉCRIS UNE PHRASE :</h3>
+            <p id="phrase-suggestion" style="color: var(--mk-yellow);"></p>
+            <input type="text" id="input-phrase" placeholder="Ton idée...">
+            <br><button id="btn-submit-phrase">VALIDER</button>
         </div>
 
         <div id="screen-draw" class="hidden">
-            <h3>🎨 Dessine : <span id="text-to-draw" style="color:var(--primary)">...</span></h3>
-            <div id="canvas-container"><canvas id="paintCanvas" width="500" height="400"></canvas></div>
+            <h3 style="color: var(--mk-yellow);">🎨 <span id="draw-instruction">...</span></h3>
+            <div id="canvas-container"><canvas id="paintCanvas" width="600" height="450"></canvas></div>
             <div class="toolbar">
-                <select id="brush-size"><option value="2">Fin</option><option value="5" selected>Normal</option><option value="12">Gros</option></select>
-                <div id="palette" style="display: flex; gap: 5px;"></div>
-                <button class="color-dot" style="background:#fff; border:1px solid #ccc;" onclick="setEraser()">🧼</button>
+                <select id="brush-size" style="padding: 10px; border-radius: 10px; font-weight: bold;">
+                    <option value="3">FIN</option><option value="7" selected>MOYEN</option><option value="15">GROS</option>
+                </select>
+                <div id="palette" style="display: flex; gap: 8px;"></div>
+                <button class="color-dot" style="background:#fff; display:flex; align-items:center; justify-content:center;" onclick="setEraser()">🧼</button>
             </div>
-            <button onclick="clearCanvas()">Vider</button>
-            <button id="btn-submit-draw">Terminé</button>
+            <button onclick="clearCanvas()" style="background:#666;">EFFACER TOUT</button>
+            <button id="btn-submit-draw" style="background: var(--mk-red);">TERMINÉ !</button>
         </div>
 
         <div id="screen-guess" class="hidden">
-            <h3>🤔 Qu'est-ce que c'est ?</h3>
-            <img id="img-to-guess" class="result-img" src=""><br>
-            <input type="text" id="input-guess" placeholder="Ta réponse..."><br>
-            <button id="btn-submit-guess">Valider</button>
+            <h3 style="color: var(--mk-yellow);">🤔 QU'EST-CE QUE C'EST ?</h3>
+            <div style="background: #ffffff; padding: 10px; border-radius: 15px; margin-bottom: 15px; border: 4px solid var(--mk-blue);">
+                <img id="img-to-guess" class="result-img" src="">
+            </div>
+            <input type="text" id="input-guess" placeholder="Ta réponse...">
+            <br><button id="btn-submit-guess" style="background: var(--mk-blue);">ENVOYER</button>
         </div>
 
-        <div id="screen-wait" class="hidden">⏳ On attend les autres...</div>
+        <div id="screen-wait" class="hidden">
+            <h2 style="color: var(--mk-yellow);">BIEN JOUÉ !</h2>
+            <div style="font-size: 4rem;">🏎️💨</div>
+            <p>On attend les autres pilotes...</p>
+        </div>
 
         <div id="screen-results" class="hidden">
-            <h2>🏆 Album de la partie</h2>
+            <h2>🏆 RÉSULTATS DE LA COURSE 🏆</h2>
             <div id="results-gallery"></div>
         </div>
     </div>
 
     <div id="persistent-admin-panel" class="hidden">
-        <input type="number" id="cfg-timer" value="45" style="width:50px;">
-        <button id="btn-start-game" class="btn-admin">LANCER</button>
-        <button id="btn-reset-round" class="btn-danger" style="background:#e67e22;">ROUND</button>
-        <button id="btn-reset-players" class="btn-danger">SALON</button>
-        <button id="btn-reset-hard" class="btn-hard">HARD</button>
+        <div class="admin-group">
+            <span style="font-weight: bold;">⏱️ SECS:</span>
+            <input type="number" id="cfg-timer" value="45" style="width:60px; font-weight: bold; border: 2px solid #000;">
+            <button id="btn-start-game" class="btn-admin" style="margin: 0 0 0 10px; padding: 10px 20px;">START !</button>
+        </div>
+        <div class="reset-zone">
+            <button id="btn-reset-round" class="btn-danger" style="font-size: 0.8rem; padding: 10px;">RESET ROUND</button>
+            <button id="btn-reset-players" class="btn-danger" style="font-size: 0.8rem; padding: 10px;">RESET SALON</button>
+            <button id="btn-reset-hard" style="background:#000; font-size: 0.8rem; padding: 10px;">RESET TOTAL</button>
+        </div>
     </div>
 
     <script type="module">
@@ -137,171 +229,225 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const myId = 'u' + Math.floor(Math.random() * 1000000);
-        let myName = "", isAdmin = false, players = [], isLogged = false;
+        let myName = "", isAdmin = false, players = [], isLogged = false, tLoop = null;
 
-        const suggestions = ["Un chat ninja", "Pizza spatiale", "Elon Musk sur Mars", "Poney volant"];
-
-        // Auth
-        document.getElementById('btn-join-player').onclick = () => login(false);
-        document.getElementById('btn-join-admin').onclick = () => {
-            if(document.getElementById('login-pass').value === "admin") login(true);
-            else alert("Accès Admin refusé");
-        };
-
-        function login(isAdm) {
-            myName = document.getElementById('login-name').value || "Joueur";
-            isAdmin = isAdm;
-            isLogged = true;
-            set(ref(db, `game_v8/players/${myId}`), { name: myName, isAdmin: isAdm });
-            onDisconnect(ref(db, `game_v8/players/${myId}`)).remove();
-            if(isAdmin) document.getElementById('persistent-admin-panel').classList.remove('hidden');
-            showScreen('screen-lobby');
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTick(freq, vol = 0.05) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
         }
 
-        // Admin
+        const suggestions = ["Un Bowser en tutu", "Une banane piégée", "Mario fait du skate", "Une carapace bleue"];
+
+        document.getElementById('btn-join-player').onclick = () => {
+            const name = document.getElementById('login-name').value;
+            if(!name) return alert("ENTRE TON PRÉNOM !");
+            login(name, false);
+        };
+        document.getElementById('btn-join-admin').onclick = () => {
+            const name = document.getElementById('admin-name').value || "Maitre du Jeu";
+            const pass = document.getElementById('admin-pass').value;
+            if(pass === "admin") login(name, true);
+            else alert("CODE INCORRECT");
+        };
+
+        function login(name, isAdm) {
+            myName = name; isAdmin = isAdm; isLogged = true;
+            set(ref(db, `scrum_phone/players/${myId}`), { name: myName, isAdmin: isAdm });
+            onDisconnect(ref(db, `scrum_phone/players/${myId}`)).remove();
+            if(isAdmin) document.getElementById('persistent-admin-panel').classList.remove('hidden');
+            showScreen('screen-lobby');
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function startNewTimer(seconds) {
+            if(tLoop) clearInterval(tLoop);
+            let c = seconds;
+            tLoop = setInterval(() => {
+                c--;
+                update(ref(db, 'scrum_phone'), { timer: c });
+                if(c <= 0) clearInterval(tLoop);
+            }, 1000);
+        }
+
         document.getElementById('btn-start-game').onclick = () => {
-            if(!isAdmin) return;
             let dur = parseInt(document.getElementById('cfg-timer').value);
-            update(ref(db, 'game_v8'), { state: "WRITE", timer: dur, maxTime: dur, books: null });
+            update(ref(db, 'scrum_phone'), { state: "WRITE", timer: dur, maxTime: dur, books: null });
+            if(isAdmin) startNewTimer(dur);
         };
 
+        // ACTIONS RESET AVEC CORRECTION TIMER
         document.getElementById('btn-reset-round').onclick = () => {
-            if(isAdmin) { remove(ref(db, 'game_v8/books')); update(ref(db, 'game_v8'), { state: "LOBBY", timer: -1 }); }
+            if(!confirm("Recommencer le round ?")) return;
+            if(tLoop) clearInterval(tLoop);
+            remove(ref(db, 'scrum_phone/books')); 
+            update(ref(db, 'scrum_phone'), { state: "LOBBY", timer: -1 });
         };
-
         document.getElementById('btn-reset-players').onclick = async () => {
-            if(isAdmin && confirm("Vider le salon ?")) {
-                await remove(ref(db, 'game_v8'));
-                set(ref(db, `game_v8/players/${myId}`), { name: myName, isAdmin: true });
-                update(ref(db, 'game_v8'), { state: "LOBBY", timer: -1 });
+            if(!confirm("Vider le salon ?")) return;
+            if(tLoop) clearInterval(tLoop);
+            await remove(ref(db, 'scrum_phone'));
+            set(ref(db, `scrum_phone/players/${myId}`), { name: myName, isAdmin: true });
+            update(ref(db, 'scrum_phone'), { state: "LOBBY", timer: -1 });
+        };
+        document.getElementById('btn-reset-hard').onclick = () => {
+            if(confirm("TOUT EFFACER ET REDÉMARRER ?")) {
+                if(tLoop) clearInterval(tLoop);
+                update(ref(db, 'scrum_phone'), { timer: -1, state: "LOBBY" }).then(() => {
+                    remove(ref(db, 'scrum_phone')).then(() => location.reload());
+                });
             }
         };
 
-        document.getElementById('btn-reset-hard').onclick = () => {
-            if(isAdmin && confirm("HARD RESET ?")) remove(ref(db, 'game_v8')).then(() => location.reload());
-        };
+        // ÉCOUTE DU TIMER AVEC SÉCURITÉ AFFICHAGE
+        onValue(ref(db, 'scrum_phone/timer'), async (snap) => {
+            const t = snap.val(); 
+            const display = document.getElementById('timer-display');
+            const container = document.getElementById('timer-container');
+            const stSnap = await get(ref(db, 'scrum_phone/state'));
+            const st = stSnap.val();
 
-        // Sync
-        onValue(ref(db, 'game_v8/timer'), async (snap) => {
-            const t = snap.val(); const display = document.getElementById('timer-display');
-            if(t !== null && t >= 0) {
-                display.classList.remove('hidden'); display.innerText = t;
-                if(t === 0) forceSubmit();
-            } else display.classList.add('hidden');
+            // Si t est -1 ou si on est en lobby, on cache le container
+            if(t !== null && t >= 0 && st !== "LOBBY" && st !== "RESULTS") {
+                container.classList.remove('hidden'); 
+                display.innerText = t + "s";
+                if(t <= 5 && t > 0) playTick(523);
+                else if(t === 0) { playTick(659, 0.08); forceSubmit(); }
+                const maxSnap = await get(ref(db, 'scrum_phone/maxTime'));
+                const max = maxSnap.val() || 45;
+                document.getElementById('timer-progress').style.width = (t/max*100) + "%";
+            } else {
+                container.classList.add('hidden');
+            }
         });
 
-        onValue(ref(db, 'game_v8/state'), (snap) => {
+        onValue(ref(db, 'scrum_phone/state'), (snap) => {
             const s = snap.val(); if(!s) return;
             if(s === "LOBBY") showScreen('screen-lobby');
-            if(s === "WRITE") { showScreen('screen-write'); document.getElementById('phrase-suggestion').innerText = "Ex : " + suggestions[Math.floor(Math.random()*suggestions.length)]; }
+            if(s === "WRITE") {
+                showScreen('screen-write');
+                document.getElementById('phrase-suggestion').innerText = "INDICE : " + suggestions[Math.floor(Math.random()*suggestions.length)];
+            }
             if(s === "DRAW") startDrawPhase();
             if(s === "GUESS") startGuessPhase();
             if(s === "RESULTS") showResults();
         });
 
-        onValue(ref(db, 'game_v8/players'), (snap) => {
+        onValue(ref(db, 'scrum_phone/players'), (snap) => {
             const data = snap.val(); players = data ? Object.keys(data) : [];
-            document.getElementById('player-list').innerHTML = data ? Object.values(data).map(p => p.name).join(" — ") : "Salon vide";
-            // LA CORRECTION EST ICI : On ne check le kick que si l'utilisateur est déjà loggé
-            if (isLogged && players.length > 0 && !players.includes(myId)) {
-                location.reload();
-            }
+            document.getElementById('player-list').innerHTML = data ? Object.values(data).map(p => p.name).join(" • ") : "";
         });
 
-        // Flow simple
         function showScreen(id) {
-            document.querySelectorAll('.container > div:not(#timer-display)').forEach(d => d.classList.add('hidden'));
+            document.querySelectorAll('.container > div').forEach(d => { if(d.id !== 'timer-container') d.classList.add('hidden'); });
             document.getElementById(id).classList.remove('hidden');
         }
 
         document.getElementById('btn-submit-phrase').onclick = async () => {
-            await set(ref(db, `game_v8/books/${myId}/step0`), { content: document.getElementById('input-phrase').value || "Mystère", author: myName });
+            const val = document.getElementById('input-phrase').value || "Une carapace";
+            showScreen('screen-wait');
+            await set(ref(db, `scrum_phone/books/${myId}/step0`), { content: val, author: myName });
             checkNext("DRAW");
         };
 
         async function startDrawPhase() {
-            const snap = await get(ref(db, `game_v8/books/${getTId(1)}/step0`));
-            document.getElementById('text-to-draw').innerText = snap.val() ? snap.val().content : "...";
+            const snap = await get(ref(db, `scrum_phone/books/${getTId(1)}/step0`));
+            const data = snap.val() || {author: "Inconnu", content: "Rien"};
+            document.getElementById('draw-instruction').innerHTML = `<b>${data.author}</b> veut que tu dessines : <br>"${data.content}"`;
             showScreen('screen-draw'); clearCanvas();
         }
 
         document.getElementById('btn-submit-draw').onclick = async () => {
-            await set(ref(db, `game_v8/books/${getTId(1)}/step1`), { content: canvas.toDataURL('image/png'), author: myName });
+            const data = canvas.toDataURL('image/png');
+            showScreen('screen-wait');
+            await set(ref(db, `scrum_phone/books/${getTId(1)}/step1`), { content: data, author: myName });
             checkNext("GUESS");
         };
 
         async function startGuessPhase() {
-            const snap = await get(ref(db, `game_v8/books/${getTId(2)}/step1`));
-            document.getElementById('img-to-guess').src = snap.val() ? snap.val().content : "";
+            const snap = await get(ref(db, `scrum_phone/books/${getTId(2)}/step1`));
+            const data = snap.val();
+            document.getElementById('img-to-guess').src = data ? data.content : "";
             showScreen('screen-guess');
         }
 
         document.getElementById('btn-submit-guess').onclick = async () => {
-            await set(ref(db, `game_v8/books/${getTId(2)}/step2`), { content: document.getElementById('input-guess').value || "Rien", author: myName });
+            const val = document.getElementById('input-guess').value || "???";
+            showScreen('screen-wait');
+            await set(ref(db, `scrum_phone/books/${getTId(2)}/step2`), { content: val, author: myName });
             checkNext("RESULTS");
         };
 
         async function checkNext(next) {
-            showScreen('screen-wait');
             if(!isAdmin) return;
             const itv = setInterval(async () => {
-                const snap = await get(ref(db, 'game_v8/books'));
-                const books = snap.val() || {};
+                const bSnap = await get(ref(db, 'scrum_phone/books'));
+                const books = bSnap.val() || {};
                 const step = next === "DRAW" ? "step0" : (next === "GUESS" ? "step1" : "step2");
                 if(Object.values(books).filter(b => b[step]).length === players.length) {
                     clearInterval(itv);
-                    let dur = parseInt(document.getElementById('cfg-timer').value);
-                    update(ref(db, 'game_v8'), { state: next, timer: dur });
-                    let c = dur;
-                    let timerLoop = setInterval(() => {
-                        c--; update(ref(db, 'game_v8'), { timer: c });
-                        if(c <= 0) clearInterval(timerLoop);
-                    }, 1000);
+                    const dur = parseInt(document.getElementById('cfg-timer').value);
+                    update(ref(db, 'scrum_phone'), { state: next, timer: dur });
+                    startNewTimer(dur);
                 }
             }, 2000);
         }
 
         function getTId(off) { const idx = players.indexOf(myId); return players[(idx + off) % players.length]; }
+        
         function forceSubmit() {
-            const current = document.querySelector('.container > div:not(.hidden)');
-            if(current.id === 'screen-write') document.getElementById('btn-submit-phrase').click();
-            if(current.id === 'screen-draw') document.getElementById('btn-submit-draw').click();
-            if(current.id === 'screen-guess') document.getElementById('btn-submit-guess').click();
+            const visible = document.querySelector('.container > div:not(.hidden)');
+            if (!visible) return;
+            if(visible.id === 'screen-write') document.getElementById('btn-submit-phrase').click();
+            if(visible.id === 'screen-draw') document.getElementById('btn-submit-draw').click();
+            if(visible.id === 'screen-guess') document.getElementById('btn-submit-guess').click();
         }
 
-        // Draw
         const canvas = document.getElementById('paintCanvas'); const ctx = canvas.getContext('2d');
         let painting = false, brushColor = "#000000";
-        const colors = ["#000000", "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#e67e22", "#9b59b6", "#795548", "#ff9ff3", "#00d2d3"];
-        colors.forEach(c => {
+        const pal = ["#000000", "#ff0000", "#0055aa", "#43b047", "#fff200", "#ff6b6b", "#4834d4", "#6ab04c", "#be2edd", "#ffffff"];
+        pal.forEach(c => {
             const dot = document.createElement('div'); dot.className = 'color-dot'; dot.style.background = c;
             dot.onclick = () => { brushColor = c; document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active')); dot.classList.add('active'); };
             document.getElementById('palette').appendChild(dot);
+            if(c === "#000000") dot.classList.add('active');
         });
-        canvas.onmousedown = (e) => { painting = true; draw(e); };
-        canvas.onmouseup = () => { painting = false; ctx.beginPath(); };
-        canvas.onmousemove = draw;
-        function draw(e) {
-            if (!painting) return; 
-            ctx.lineWidth = document.getElementById('brush-size').value; 
-            ctx.lineCap = 'round'; ctx.strokeStyle = brushColor;
-            const rect = canvas.getBoundingClientRect(); ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-            ctx.stroke(); ctx.beginPath(); ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-        }
-        window.setEraser = () => { brushColor = "#ffffff"; };
+        const getXY = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        };
+        canvas.onmousedown = canvas.ontouchstart = (e) => { painting = true; const pos = getXY(e); ctx.moveTo(pos.x, pos.y); };
+        canvas.onmouseup = canvas.ontouchend = () => { painting = false; ctx.beginPath(); };
+        canvas.onmousemove = canvas.ontouchmove = (e) => { 
+            if (!painting) return; const pos = getXY(e);
+            ctx.lineWidth = document.getElementById('brush-size').value; ctx.lineCap = 'round'; ctx.strokeStyle = brushColor;
+            ctx.lineTo(pos.x, pos.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+            if(e.touches) e.preventDefault();
+        };
+        window.setEraser = () => brushColor = "#ffffff";
         window.clearCanvas = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         async function showResults() {
             showScreen('screen-results');
-            const snap = await get(ref(db, 'game_v8/books')); const books = snap.val();
+            const books = (await get(ref(db, 'scrum_phone/books'))).val();
             const gal = document.getElementById('results-gallery'); gal.innerHTML = "";
             for (let id in books) {
                 const b = books[id]; if(!b.step0 || !b.step1 || !b.step2) continue;
-                gal.innerHTML += `<div style="border-bottom:2px solid #ccc; padding:20px; text-align:left;">
-                    <p><b>${b.step0.author}</b> : "${b.step0.content}"</p>
-                    <img class="result-img" src="${b.step1.content}">
-                    <p><b>${b.step2.author}</b> a vu : <b>"${b.step2.content}"</b></p>
-                </div>`;
+                gal.innerHTML += `
+                    <div class="result-card">
+                        <div class="step-info">🏁 DÉPART: <b>${b.step0.author}</b> a écrit :<br>"${b.step0.content}"</div>
+                        <img class="result-img" src="${b.step1.content}">
+                        <div class="step-info">🎨 VIRAGE: <b>${b.step1.author}</b> a illustré</div>
+                        <div class="step-info">🏆 ARRIVÉE: <b>${b.step2.author}</b> a deviné :<br>"${b.step2.content}"</div>
+                    </div>`;
             }
         }
     </script>
