@@ -28,7 +28,6 @@
             padding-bottom: 200px;
         }
 
-        /* TIMER MK STYLE - Correction affichage */
         #timer-container {
             position: sticky; top: 0; width: 100%; 
             background: rgba(0, 0, 0, 0.8);
@@ -57,7 +56,6 @@
             margin-bottom: 30px; transform: skewX(-5deg);
         }
 
-        /* CONNEXION */
         .login-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
         @media (max-width: 600px) { .login-grid { grid-template-columns: 1fr; } }
         
@@ -87,7 +85,6 @@
         button.btn-admin { background: var(--mk-red); box-shadow: 0 6px 0 #990000; }
         button.btn-danger { background: #444; box-shadow: 0 6px 0 #222; }
 
-        /* ADMIN PANEL - JAUNE KART */
         #persistent-admin-panel {
             position: fixed; bottom: 0; left: 0; right: 0; 
             background: var(--mk-yellow); color: var(--mk-dark);
@@ -95,11 +92,9 @@
             gap: 20px; z-index: 2000; border-top: 6px solid var(--mk-white);
         }
         .admin-group { background: var(--mk-white); padding: 12px 25px; border-radius: 10px; border: 3px solid var(--mk-dark); display: flex; align-items: center; gap: 10px; }
-        .reset-zone { border-left: 3px solid rgba(0,0,0,0.1); padding-left: 20px; display: flex; gap: 10px; }
 
         .hidden { display: none !important; }
 
-        /* ZONE DE DESSIN ET IMAGE : BLANC IMPÉRATIF */
         #canvas-container { 
             background: #ffffff !important; 
             border-radius: 15px; margin: 20px auto; 
@@ -109,8 +104,8 @@
         
         .result-img { 
             width: 100%; border-radius: 10px; border: 2px solid #ccc; 
-            background: #ffffff !important; /* Fond blanc pour l'image à deviner */
-            display: block;
+            background: #ffffff !important;
+            display: block; margin: 10px 0;
         }
 
         .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 15px 0; }
@@ -121,7 +116,7 @@
             background: var(--mk-white); color: var(--mk-dark); padding: 25px; border-radius: 15px; 
             margin-bottom: 30px; text-align: left; border-left: 10px solid var(--mk-blue);
         }
-        .step-info { font-size: 1.2rem; margin: 15px 0; font-weight: bold; color: var(--mk-blue); }
+        .step-info { font-size: 1.1rem; margin: 8px 0; font-weight: bold; color: var(--mk-blue); }
         .blink { animation: blinker 0.8s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.3; } }
     </style>
@@ -158,7 +153,7 @@
         </div>
 
         <div id="screen-write" class="hidden">
-            <h3>📝 ÉCRIS UNE PHRASE :</h3>
+            <h3 id="write-title">📝 ÉCRIS UNE PHRASE :</h3>
             <p id="phrase-suggestion" style="color: var(--mk-yellow);"></p>
             <input type="text" id="input-phrase" placeholder="Ton idée...">
             <br><button id="btn-submit-phrase">VALIDER</button>
@@ -207,7 +202,6 @@
         </div>
         <div class="reset-zone">
             <button id="btn-reset-round" class="btn-danger" style="font-size: 0.8rem; padding: 10px;">RESET ROUND</button>
-            <button id="btn-reset-players" class="btn-danger" style="font-size: 0.8rem; padding: 10px;">RESET SALON</button>
             <button id="btn-reset-hard" style="background:#000; font-size: 0.8rem; padding: 10px;">RESET TOTAL</button>
         </div>
     </div>
@@ -229,7 +223,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const myId = 'u' + Math.floor(Math.random() * 1000000);
-        let myName = "", isAdmin = false, players = [], isLogged = false, tLoop = null;
+        let myName = "", isAdmin = false, players = [], tLoop = null;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playTick(freq, vol = 0.05) {
@@ -258,14 +252,114 @@
         };
 
         function login(name, isAdm) {
-            myName = name; isAdmin = isAdm; isLogged = true;
+            myName = name; isAdmin = isAdm;
             set(ref(db, `scrum_phone/players/${myId}`), { name: myName, isAdmin: isAdm });
             onDisconnect(ref(db, `scrum_phone/players/${myId}`)).remove();
             if(isAdmin) document.getElementById('persistent-admin-panel').classList.remove('hidden');
             showScreen('screen-lobby');
-            if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
+        // --- GESTION DES TOURS ---
+        function getTId(step) { 
+            const idx = players.indexOf(myId); 
+            let targetIdx = (idx - step) % players.length;
+            if (targetIdx < 0) targetIdx += players.length;
+            return players[targetIdx];
+        }
+
+        async function checkNext() {
+            if(!isAdmin) return;
+            const itv = setInterval(async () => {
+                const snapState = await get(ref(db, 'scrum_phone/state'));
+                const currentState = snapState.val();
+                if (currentState === "RESULTS" || currentState === "LOBBY") return clearInterval(itv);
+
+                let stepIndex = 0;
+                if (currentState !== "WRITE") stepIndex = parseInt(currentState.split('_')[1]);
+
+                const bSnap = await get(ref(db, 'scrum_phone/books'));
+                const books = bSnap.val() || {};
+                const finishedCount = Object.values(books).filter(b => b[`step${stepIndex}`]).length;
+
+                if(finishedCount === players.length && players.length > 0) {
+                    clearInterval(itv);
+                    const nextIndex = stepIndex + 1;
+                    if (nextIndex >= players.length) {
+                        update(ref(db, 'scrum_phone'), { state: "RESULTS", timer: -1 });
+                    } else {
+                        const nextType = (nextIndex % 2 === 1) ? "DRAW" : "GUESS";
+                        const dur = parseInt(document.getElementById('cfg-timer').value);
+                        update(ref(db, 'scrum_phone'), { state: `${nextType}_${nextIndex}`, timer: dur, maxTime: dur });
+                        startNewTimer(dur);
+                    }
+                }
+            }, 2000);
+        }
+
+        // --- ACTIONS ---
+        document.getElementById('btn-start-game').onclick = () => {
+            let dur = parseInt(document.getElementById('cfg-timer').value);
+            update(ref(db, 'scrum_phone'), { state: "WRITE", timer: dur, maxTime: dur, books: null });
+            if(isAdmin) startNewTimer(dur);
+        };
+
+        document.getElementById('btn-submit-phrase').onclick = async () => {
+            const val = document.getElementById('input-phrase').value || "Une carapace";
+            const sSnap = await get(ref(db, 'scrum_phone/state'));
+            const state = sSnap.val();
+            const stepIdx = state === "WRITE" ? 0 : parseInt(state.split('_')[1]);
+            
+            showScreen('screen-wait');
+            await set(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${stepIdx}`), { content: val, author: myName });
+            checkNext();
+        };
+
+        document.getElementById('btn-submit-draw').onclick = async () => {
+            const sSnap = await get(ref(db, 'scrum_phone/state'));
+            const stepIdx = parseInt(sSnap.val().split('_')[1]);
+            const data = canvas.toDataURL('image/png');
+            showScreen('screen-wait');
+            await set(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${stepIdx}`), { content: data, author: myName });
+            checkNext();
+        };
+
+        document.getElementById('btn-submit-guess').onclick = async () => {
+            const val = document.getElementById('input-guess').value || "???";
+            const sSnap = await get(ref(db, 'scrum_phone/state'));
+            const stepIdx = parseInt(sSnap.val().split('_')[1]);
+            showScreen('screen-wait');
+            await set(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${stepIdx}`), { content: val, author: myName });
+            checkNext();
+        };
+
+        // --- AFFICHAGE ÉCRANS ---
+        onValue(ref(db, 'scrum_phone/state'), async (snap) => {
+            const s = snap.val(); if(!s) return;
+            if(s === "LOBBY") showScreen('screen-lobby');
+            if(s === "WRITE") {
+                showScreen('screen-write');
+                document.getElementById('write-title').innerText = "📝 ÉCRIS UNE PHRASE :";
+                document.getElementById('phrase-suggestion').innerText = "Exemple : " + suggestions[Math.floor(Math.random()*suggestions.length)];
+            }
+            if(s.startsWith("DRAW_")) {
+                const stepIdx = parseInt(s.split('_')[1]);
+                const prevStep = stepIdx - 1;
+                const snapP = await get(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${prevStep}`));
+                const data = snapP.val() || {author: "Inconnu", content: "Rien"};
+                document.getElementById('draw-instruction').innerHTML = `<b>${data.author}</b> veut que tu dessines : <br>"${data.content}"`;
+                showScreen('screen-draw'); clearCanvas();
+            }
+            if(s.startsWith("GUESS_")) {
+                const stepIdx = parseInt(s.split('_')[1]);
+                const prevStep = stepIdx - 1;
+                const snapP = await get(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${prevStep}`));
+                document.getElementById('img-to-guess').src = snapP.val() ? snapP.val().content : "";
+                showScreen('screen-guess');
+            }
+            if(s === "RESULTS") showResults();
+        });
+
+        // --- TIMER & SYNC ---
         function startNewTimer(seconds) {
             if(tLoop) clearInterval(tLoop);
             let c = seconds;
@@ -276,36 +370,6 @@
             }, 1000);
         }
 
-        document.getElementById('btn-start-game').onclick = () => {
-            let dur = parseInt(document.getElementById('cfg-timer').value);
-            update(ref(db, 'scrum_phone'), { state: "WRITE", timer: dur, maxTime: dur, books: null });
-            if(isAdmin) startNewTimer(dur);
-        };
-
-        // ACTIONS RESET AVEC CORRECTION TIMER
-        document.getElementById('btn-reset-round').onclick = () => {
-            if(!confirm("Recommencer le round ?")) return;
-            if(tLoop) clearInterval(tLoop);
-            remove(ref(db, 'scrum_phone/books')); 
-            update(ref(db, 'scrum_phone'), { state: "LOBBY", timer: -1 });
-        };
-        document.getElementById('btn-reset-players').onclick = async () => {
-            if(!confirm("Vider le salon ?")) return;
-            if(tLoop) clearInterval(tLoop);
-            await remove(ref(db, 'scrum_phone'));
-            set(ref(db, `scrum_phone/players/${myId}`), { name: myName, isAdmin: true });
-            update(ref(db, 'scrum_phone'), { state: "LOBBY", timer: -1 });
-        };
-        document.getElementById('btn-reset-hard').onclick = () => {
-            if(confirm("TOUT EFFACER ET REDÉMARRER ?")) {
-                if(tLoop) clearInterval(tLoop);
-                update(ref(db, 'scrum_phone'), { timer: -1, state: "LOBBY" }).then(() => {
-                    remove(ref(db, 'scrum_phone')).then(() => location.reload());
-                });
-            }
-        };
-
-        // ÉCOUTE DU TIMER AVEC SÉCURITÉ AFFICHAGE
         onValue(ref(db, 'scrum_phone/timer'), async (snap) => {
             const t = snap.val(); 
             const display = document.getElementById('timer-display');
@@ -313,7 +377,6 @@
             const stSnap = await get(ref(db, 'scrum_phone/state'));
             const st = stSnap.val();
 
-            // Si t est -1 ou si on est en lobby, on cache le container
             if(t !== null && t >= 0 && st !== "LOBBY" && st !== "RESULTS") {
                 container.classList.remove('hidden'); 
                 display.innerText = t + "s";
@@ -327,18 +390,6 @@
             }
         });
 
-        onValue(ref(db, 'scrum_phone/state'), (snap) => {
-            const s = snap.val(); if(!s) return;
-            if(s === "LOBBY") showScreen('screen-lobby');
-            if(s === "WRITE") {
-                showScreen('screen-write');
-                document.getElementById('phrase-suggestion').innerText = "Exemple : " + suggestions[Math.floor(Math.random()*suggestions.length)];
-            }
-            if(s === "DRAW") startDrawPhase();
-            if(s === "GUESS") startGuessPhase();
-            if(s === "RESULTS") showResults();
-        });
-
         onValue(ref(db, 'scrum_phone/players'), (snap) => {
             const data = snap.val(); players = data ? Object.keys(data) : [];
             document.getElementById('player-list').innerHTML = data ? Object.values(data).map(p => p.name).join(" • ") : "";
@@ -349,58 +400,6 @@
             document.getElementById(id).classList.remove('hidden');
         }
 
-        document.getElementById('btn-submit-phrase').onclick = async () => {
-            const val = document.getElementById('input-phrase').value || "Une carapace";
-            showScreen('screen-wait');
-            await set(ref(db, `scrum_phone/books/${myId}/step0`), { content: val, author: myName });
-            checkNext("DRAW");
-        };
-
-        async function startDrawPhase() {
-            const snap = await get(ref(db, `scrum_phone/books/${getTId(1)}/step0`));
-            const data = snap.val() || {author: "Inconnu", content: "Rien"};
-            document.getElementById('draw-instruction').innerHTML = `<b>${data.author}</b> veut que tu dessines : <br>"${data.content}"`;
-            showScreen('screen-draw'); clearCanvas();
-        }
-
-        document.getElementById('btn-submit-draw').onclick = async () => {
-            const data = canvas.toDataURL('image/png');
-            showScreen('screen-wait');
-            await set(ref(db, `scrum_phone/books/${getTId(1)}/step1`), { content: data, author: myName });
-            checkNext("GUESS");
-        };
-
-        async function startGuessPhase() {
-            const snap = await get(ref(db, `scrum_phone/books/${getTId(2)}/step1`));
-            const data = snap.val();
-            document.getElementById('img-to-guess').src = data ? data.content : "";
-            showScreen('screen-guess');
-        }
-
-        document.getElementById('btn-submit-guess').onclick = async () => {
-            const val = document.getElementById('input-guess').value || "???";
-            showScreen('screen-wait');
-            await set(ref(db, `scrum_phone/books/${getTId(2)}/step2`), { content: val, author: myName });
-            checkNext("RESULTS");
-        };
-
-        async function checkNext(next) {
-            if(!isAdmin) return;
-            const itv = setInterval(async () => {
-                const bSnap = await get(ref(db, 'scrum_phone/books'));
-                const books = bSnap.val() || {};
-                const step = next === "DRAW" ? "step0" : (next === "GUESS" ? "step1" : "step2");
-                if(Object.values(books).filter(b => b[step]).length === players.length) {
-                    clearInterval(itv);
-                    const dur = parseInt(document.getElementById('cfg-timer').value);
-                    update(ref(db, 'scrum_phone'), { state: next, timer: dur });
-                    startNewTimer(dur);
-                }
-            }, 2000);
-        }
-
-        function getTId(off) { const idx = players.indexOf(myId); return players[(idx + off) % players.length]; }
-        
         function forceSubmit() {
             const visible = document.querySelector('.container > div:not(.hidden)');
             if (!visible) return;
@@ -409,47 +408,75 @@
             if(visible.id === 'screen-guess') document.getElementById('btn-submit-guess').click();
         }
 
+        // --- DESSIN ---
         const canvas = document.getElementById('paintCanvas'); const ctx = canvas.getContext('2d');
         let painting = false, brushColor = "#000000";
-        const pal = ["#000000", "#ff0000", "#0055aa", "#43b047", "#fff200", "#ff6b6b", "#4834d4", "#6ab04c", "#be2edd", "#ffffff"];
+        // Palette enrichie : Noir, Rouge, Bleu, Vert, Jaune, Rose, Cyan, Magenta, Orange, Marron, Gris, Blanc
+        const pal = [
+            "#000000", "#ff0000", "#0055aa", "#43b047", "#fff200", 
+            "#ff6b6b", "#00ffff", "#be2edd", "#ff9f43", "#8b4513", 
+            "#8395a7", "#ffffff"
+        ];
+        const palDiv = document.getElementById('palette');
+        palDiv.innerHTML = "";
         pal.forEach(c => {
             const dot = document.createElement('div'); dot.className = 'color-dot'; dot.style.background = c;
             dot.onclick = () => { brushColor = c; document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active')); dot.classList.add('active'); };
-            document.getElementById('palette').appendChild(dot);
+            palDiv.appendChild(dot);
             if(c === "#000000") dot.classList.add('active');
         });
         const getXY = (e) => {
             const rect = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: clientX - rect.left, y: clientY - rect.top };
+            return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
         };
-        canvas.onmousedown = canvas.ontouchstart = (e) => { painting = true; const pos = getXY(e); ctx.moveTo(pos.x, pos.y); };
-        canvas.onmouseup = canvas.ontouchend = () => { painting = false; ctx.beginPath(); };
+        canvas.onmousedown = canvas.ontouchstart = (e) => { painting = true; const pos = getXY(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); if(e.touches) e.preventDefault(); };
+        canvas.onmouseup = canvas.ontouchend = () => { painting = false; };
         canvas.onmousemove = canvas.ontouchmove = (e) => { 
             if (!painting) return; const pos = getXY(e);
             ctx.lineWidth = document.getElementById('brush-size').value; ctx.lineCap = 'round'; ctx.strokeStyle = brushColor;
-            ctx.lineTo(pos.x, pos.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+            ctx.lineTo(pos.x, pos.y); ctx.stroke();
             if(e.touches) e.preventDefault();
         };
         window.setEraser = () => brushColor = "#ffffff";
-        window.clearCanvas = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+        window.clearCanvas = () => { ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,canvas.width, canvas.height); };
 
+        // --- RÉSULTATS FINAUX ---
         async function showResults() {
             showScreen('screen-results');
             const books = (await get(ref(db, 'scrum_phone/books'))).val();
             const gal = document.getElementById('results-gallery'); gal.innerHTML = "";
-            for (let id in books) {
-                const b = books[id]; if(!b.step0 || !b.step1 || !b.step2) continue;
-                gal.innerHTML += `
-                    <div class="result-card">
-                        <div class="step-info">🏁 DÉPART: <b>${b.step0.author}</b> a écrit :<br>"${b.step0.content}"</div>
-                        <img class="result-img" src="${b.step1.content}">
-                        <div class="step-info">🎨 VIRAGE: <b>${b.step1.author}</b> a illustré</div>
-                        <div class="step-info">🏆 ARRIVÉE: <b>${b.step2.author}</b> a deviné :<br>"${b.step2.content}"</div>
-                    </div>`;
+            for (let bookId in books) {
+                const b = books[bookId];
+                let html = `<div class="result-card"><h3>🏎️ Le carnet de ${Object.values(players).length > 0 ? "la course" : ""}</h3>`;
+                for(let i=0; i<players.length; i++){
+                    const step = b[`step${i}`];
+                    if(!step) continue;
+                    if(i % 2 === 0) { // Texte
+                        html += `<div class="step-info">${i===0?'🏁 DÉPART':'🤔 RÉPONSE'} : <b>${step.author}</b> a écrit "${step.content}"</div>`;
+                    } else { // Dessin
+                        html += `<div class="step-info">🎨 DESSIN : <b>${step.author}</b> a illustré</div>
+                                 <img class="result-img" src="${step.content}">`;
+                    }
+                }
+                html += `</div>`;
+                gal.innerHTML += html;
             }
         }
+
+        // --- RESETS ---
+        document.getElementById('btn-reset-round').onclick = () => {
+            if(!confirm("Recommencer le round ?")) return;
+            if(tLoop) clearInterval(tLoop);
+            update(ref(db, 'scrum_phone'), { state: "LOBBY", timer: -1, books: null });
+        };
+        document.getElementById('btn-reset-hard').onclick = () => {
+            if(confirm("TOUT EFFACER ?")) {
+                if(tLoop) clearInterval(tLoop);
+                remove(ref(db, 'scrum_phone')).then(() => location.reload());
+            }
+        };
     </script>
 </body>
 </html>
