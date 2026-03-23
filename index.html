@@ -62,9 +62,7 @@
         .login-card { 
             padding: 30px; border-radius: 15px; background: var(--mk-white); color: var(--mk-dark);
             border: 4px solid var(--mk-blue); box-shadow: 8px 8px 0 rgba(0,0,0,0.2);
-            transition: 0.2s;
         }
-        .login-card:hover { transform: scale(1.02); }
         .login-card.admin-zone { border-color: var(--mk-red); }
         .login-card h2 { margin-top: 0; color: var(--mk-blue); font-style: italic; font-size: 1.8rem; }
 
@@ -91,7 +89,6 @@
             padding: 20px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
             gap: 20px; z-index: 2000; border-top: 6px solid var(--mk-white);
         }
-        .admin-group { background: var(--mk-white); padding: 12px 25px; border-radius: 10px; border: 3px solid var(--mk-dark); display: flex; align-items: center; gap: 10px; }
 
         .hidden { display: none !important; }
 
@@ -104,8 +101,7 @@
         
         .result-img { 
             width: 100%; border-radius: 10px; border: 2px solid #ccc; 
-            background: #ffffff !important;
-            display: block; margin: 10px 0;
+            background: #ffffff !important; display: block;
         }
 
         .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 15px 0; }
@@ -116,7 +112,7 @@
             background: var(--mk-white); color: var(--mk-dark); padding: 25px; border-radius: 15px; 
             margin-bottom: 30px; text-align: left; border-left: 10px solid var(--mk-blue);
         }
-        .step-info { font-size: 1.1rem; margin: 8px 0; font-weight: bold; color: var(--mk-blue); }
+        .step-info { font-size: 1.2rem; margin: 15px 0; font-weight: bold; color: var(--mk-blue); }
         .blink { animation: blinker 0.8s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.3; } }
     </style>
@@ -153,7 +149,7 @@
         </div>
 
         <div id="screen-write" class="hidden">
-            <h3 id="write-title">📝 ÉCRIS UNE PHRASE :</h3>
+            <h3>📝 ÉCRIS UNE PHRASE :</h3>
             <p id="phrase-suggestion" style="color: var(--mk-yellow);"></p>
             <input type="text" id="input-phrase" placeholder="Ton idée...">
             <br><button id="btn-submit-phrase">VALIDER</button>
@@ -202,6 +198,7 @@
         </div>
         <div class="reset-zone">
             <button id="btn-reset-round" class="btn-danger" style="font-size: 0.8rem; padding: 10px;">RESET ROUND</button>
+            <button id="btn-reset-players" class="btn-danger" style="font-size: 0.8rem; padding: 10px;">RESET SALON</button>
             <button id="btn-reset-hard" style="background:#000; font-size: 0.8rem; padding: 10px;">RESET TOTAL</button>
         </div>
     </div>
@@ -215,15 +212,13 @@
             authDomain: "telephone-arabe.firebaseapp.com",
             databaseURL: "https://telephone-arabe-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "telephone-arabe",
-            storageBucket: "telephone-arabe.firebasestorage.app",
-            messagingSenderId: "227254624373",
             appId: "1:227254624373:web:fa1542bc7551a1083fd83c"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const myId = 'u' + Math.floor(Math.random() * 1000000);
-        let myName = "", isAdmin = false, players = [], tLoop = null;
+        let myName = "", isAdmin = false, players = [], isLogged = false, tLoop = null, currentStep = 0;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playTick(freq, vol = 0.05) {
@@ -237,7 +232,8 @@
             osc.start(); osc.stop(audioCtx.currentTime + 0.2);
         }
 
-        const suggestions = ["Un Bowser en tutu", "Une banane piégée", "Mario fait du skate", "Une carapace bleue", "Peach met une tarte à Bowser", "Luigi qui aspire des fantômes", "Yoshi qui mange une fleur"];
+        const suggestions = ["Un Bowser en tutu", "Une banane piégée", "Mario fait du skate", "Une carapace bleue", "Yoshi qui mange une fleur"];
+        const fixedSuggestion = suggestions[Math.floor(Math.random()*suggestions.length)];
 
         document.getElementById('btn-join-player').onclick = () => {
             const name = document.getElementById('login-name').value;
@@ -246,120 +242,18 @@
         };
         document.getElementById('btn-join-admin').onclick = () => {
             const name = document.getElementById('admin-name').value || "Maitre du Jeu";
-            const pass = document.getElementById('admin-pass').value;
-            if(pass === "admin") login(name, true);
+            if(document.getElementById('admin-pass').value === "admin") login(name, true);
             else alert("CODE INCORRECT");
         };
 
         function login(name, isAdm) {
-            myName = name; isAdmin = isAdm;
+            myName = name; isAdmin = isAdm; isLogged = true;
             set(ref(db, `scrum_phone/players/${myId}`), { name: myName, isAdmin: isAdm });
             onDisconnect(ref(db, `scrum_phone/players/${myId}`)).remove();
             if(isAdmin) document.getElementById('persistent-admin-panel').classList.remove('hidden');
             showScreen('screen-lobby');
         }
 
-        // --- GESTION DES TOURS ---
-        function getTId(step) { 
-            const idx = players.indexOf(myId); 
-            let targetIdx = (idx - step) % players.length;
-            if (targetIdx < 0) targetIdx += players.length;
-            return players[targetIdx];
-        }
-
-        async function checkNext() {
-            if(!isAdmin) return;
-            const itv = setInterval(async () => {
-                const snapState = await get(ref(db, 'scrum_phone/state'));
-                const currentState = snapState.val();
-                if (currentState === "RESULTS" || currentState === "LOBBY") return clearInterval(itv);
-
-                let stepIndex = 0;
-                if (currentState !== "WRITE") stepIndex = parseInt(currentState.split('_')[1]);
-
-                const bSnap = await get(ref(db, 'scrum_phone/books'));
-                const books = bSnap.val() || {};
-                const finishedCount = Object.values(books).filter(b => b[`step${stepIndex}`]).length;
-
-                if(finishedCount === players.length && players.length > 0) {
-                    clearInterval(itv);
-                    const nextIndex = stepIndex + 1;
-                    if (nextIndex >= players.length) {
-                        update(ref(db, 'scrum_phone'), { state: "RESULTS", timer: -1 });
-                    } else {
-                        const nextType = (nextIndex % 2 === 1) ? "DRAW" : "GUESS";
-                        const dur = parseInt(document.getElementById('cfg-timer').value);
-                        update(ref(db, 'scrum_phone'), { state: `${nextType}_${nextIndex}`, timer: dur, maxTime: dur });
-                        startNewTimer(dur);
-                    }
-                }
-            }, 2000);
-        }
-
-        // --- ACTIONS ---
-        document.getElementById('btn-start-game').onclick = () => {
-            let dur = parseInt(document.getElementById('cfg-timer').value);
-            update(ref(db, 'scrum_phone'), { state: "WRITE", timer: dur, maxTime: dur, books: null });
-            if(isAdmin) startNewTimer(dur);
-        };
-
-        document.getElementById('btn-submit-phrase').onclick = async () => {
-            const val = document.getElementById('input-phrase').value || "Une carapace";
-            const sSnap = await get(ref(db, 'scrum_phone/state'));
-            const state = sSnap.val();
-            const stepIdx = state === "WRITE" ? 0 : parseInt(state.split('_')[1]);
-            
-            showScreen('screen-wait');
-            await set(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${stepIdx}`), { content: val, author: myName });
-            checkNext();
-        };
-
-        document.getElementById('btn-submit-draw').onclick = async () => {
-            const sSnap = await get(ref(db, 'scrum_phone/state'));
-            const stepIdx = parseInt(sSnap.val().split('_')[1]);
-            const data = canvas.toDataURL('image/png');
-            showScreen('screen-wait');
-            await set(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${stepIdx}`), { content: data, author: myName });
-            checkNext();
-        };
-
-        document.getElementById('btn-submit-guess').onclick = async () => {
-            const val = document.getElementById('input-guess').value || "???";
-            const sSnap = await get(ref(db, 'scrum_phone/state'));
-            const stepIdx = parseInt(sSnap.val().split('_')[1]);
-            showScreen('screen-wait');
-            await set(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${stepIdx}`), { content: val, author: myName });
-            checkNext();
-        };
-
-        // --- AFFICHAGE ÉCRANS ---
-        onValue(ref(db, 'scrum_phone/state'), async (snap) => {
-            const s = snap.val(); if(!s) return;
-            if(s === "LOBBY") showScreen('screen-lobby');
-            if(s === "WRITE") {
-                showScreen('screen-write');
-                document.getElementById('write-title').innerText = "📝 ÉCRIS UNE PHRASE :";
-                document.getElementById('phrase-suggestion').innerText = "Exemple : " + suggestions[Math.floor(Math.random()*suggestions.length)];
-            }
-            if(s.startsWith("DRAW_")) {
-                const stepIdx = parseInt(s.split('_')[1]);
-                const prevStep = stepIdx - 1;
-                const snapP = await get(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${prevStep}`));
-                const data = snapP.val() || {author: "Inconnu", content: "Rien"};
-                document.getElementById('draw-instruction').innerHTML = `<b>${data.author}</b> veut que tu dessines : <br>"${data.content}"`;
-                showScreen('screen-draw'); clearCanvas();
-            }
-            if(s.startsWith("GUESS_")) {
-                const stepIdx = parseInt(s.split('_')[1]);
-                const prevStep = stepIdx - 1;
-                const snapP = await get(ref(db, `scrum_phone/books/${getTId(stepIdx)}/step${prevStep}`));
-                document.getElementById('img-to-guess').src = snapP.val() ? snapP.val().content : "";
-                showScreen('screen-guess');
-            }
-            if(s === "RESULTS") showResults();
-        });
-
-        // --- TIMER & SYNC ---
         function startNewTimer(seconds) {
             if(tLoop) clearInterval(tLoop);
             let c = seconds;
@@ -370,113 +264,127 @@
             }, 1000);
         }
 
-        onValue(ref(db, 'scrum_phone/timer'), async (snap) => {
-            const t = snap.val(); 
-            const display = document.getElementById('timer-display');
-            const container = document.getElementById('timer-container');
-            const stSnap = await get(ref(db, 'scrum_phone/state'));
-            const st = stSnap.val();
+        document.getElementById('btn-start-game').onclick = () => {
+            let dur = parseInt(document.getElementById('cfg-timer').value);
+            update(ref(db, 'scrum_phone'), { state: "WRITE", step: 0, timer: dur, maxTime: dur, books: null });
+            if(isAdmin) startNewTimer(dur);
+        };
 
-            if(t !== null && t >= 0 && st !== "LOBBY" && st !== "RESULTS") {
-                container.classList.remove('hidden'); 
-                display.innerText = t + "s";
+        document.getElementById('btn-reset-round').onclick = () => { if(confirm("Recommencer le round ?")) update(ref(db, 'scrum_phone'), { state: "LOBBY", step: 0, timer: -1, books: null }); };
+        document.getElementById('btn-reset-players').onclick = async () => { if(confirm("Vider le salon ?")) { await remove(ref(db, 'scrum_phone')); location.reload(); } };
+        document.getElementById('btn-reset-hard').onclick = () => { if(confirm("TOUT EFFACER ?")) remove(ref(db, 'scrum_phone')).then(() => location.reload()); };
+
+        onValue(ref(db, 'scrum_phone'), (snap) => {
+            const data = snap.val(); if(!data) return;
+            players = data.players ? Object.keys(data.players) : [];
+            document.getElementById('player-list').innerHTML = data.players ? Object.values(data.players).map(p => p.name).join(" • ") : "";
+            
+            currentStep = data.step || 0;
+            const s = data.state;
+            const t = data.timer;
+
+            // Timer
+            if(t !== null && t >= 0 && s !== "LOBBY" && s !== "RESULTS") {
+                document.getElementById('timer-container').classList.remove('hidden'); 
+                document.getElementById('timer-display').innerText = t + "s";
                 if(t <= 5 && t > 0) playTick(523);
-                else if(t === 0) { playTick(659, 0.08); forceSubmit(); }
-                const maxSnap = await get(ref(db, 'scrum_phone/maxTime'));
-                const max = maxSnap.val() || 45;
-                document.getElementById('timer-progress').style.width = (t/max*100) + "%";
-            } else {
-                container.classList.add('hidden');
+                if(t === 0) forceSubmit();
+                document.getElementById('timer-progress').style.width = (t/data.maxTime*100) + "%";
+            } else { document.getElementById('timer-container').classList.add('hidden'); }
+
+            // Écrans
+            if(s === "LOBBY") showScreen('screen-lobby');
+            else if(s === "RESULTS") showResults(data.books);
+            else {
+                const alreadyDone = data.books && data.books[getTId(currentStep)] && data.books[getTId(currentStep)]['step'+currentStep];
+                if(alreadyDone) showScreen('screen-wait');
+                else if(s === "WRITE") { showScreen('screen-write'); document.getElementById('phrase-suggestion').innerText = "Exemple : " + fixedSuggestion; }
+                else if(s === "DRAW") startDrawPhase(data.books);
+                else if(s === "GUESS") startGuessPhase(data.books);
             }
         });
 
-        onValue(ref(db, 'scrum_phone/players'), (snap) => {
-            const data = snap.val(); players = data ? Object.keys(data) : [];
-            document.getElementById('player-list').innerHTML = data ? Object.values(data).map(p => p.name).join(" • ") : "";
-        });
+        function showScreen(id) { document.querySelectorAll('.container > div').forEach(d => { if(d.id !== 'timer-container') d.classList.add('hidden'); }); document.getElementById(id).classList.remove('hidden'); }
 
-        function showScreen(id) {
-            document.querySelectorAll('.container > div').forEach(d => { if(d.id !== 'timer-container') d.classList.add('hidden'); });
-            document.getElementById(id).classList.remove('hidden');
+        document.getElementById('btn-submit-phrase').onclick = () => submitAction(document.getElementById('input-phrase').value || "Une banane");
+        document.getElementById('btn-submit-draw').onclick = () => submitAction(canvas.toDataURL('image/png'));
+        document.getElementById('btn-submit-guess').onclick = () => submitAction(document.getElementById('input-guess').value || "???");
+
+        async function submitAction(content) {
+            const targetBookId = getTId(currentStep);
+            await set(ref(db, `scrum_phone/books/${targetBookId}/step${currentStep}`), { content, author: myName });
+            showScreen('screen-wait');
+            if(isAdmin) checkAllReady();
+        }
+
+        async function checkAllReady() {
+            const snap = await get(ref(db, 'scrum_phone'));
+            const data = snap.val();
+            const count = Object.values(data.books || {}).filter(b => b['step'+currentStep]).length;
+            if(count >= players.length) {
+                const nextStep = currentStep + 1;
+                if(nextStep >= players.length) update(ref(db, 'scrum_phone'), { state: "RESULTS", timer: -1 });
+                else {
+                    const nextState = (nextStep % 2 === 1) ? "DRAW" : "GUESS";
+                    const dur = parseInt(document.getElementById('cfg-timer').value);
+                    update(ref(db, 'scrum_phone'), { state: nextState, step: nextStep, timer: dur });
+                    startNewTimer(dur);
+                }
+            }
+        }
+
+        function getTId(step) { const idx = players.indexOf(myId); return players[(idx - step + players.length) % players.length]; }
+
+        function startDrawPhase(books) {
+            const prev = books[getTId(currentStep)]['step'+(currentStep-1)];
+            document.getElementById('draw-instruction').innerHTML = `<b>${prev.author}</b> : "${prev.content}"`;
+            showScreen('screen-draw'); clearCanvas();
+        }
+
+        function startGuessPhase(books) {
+            const prev = books[getTId(currentStep)]['step'+(currentStep-1)];
+            document.getElementById('img-to-guess').src = prev.content;
+            showScreen('screen-guess');
         }
 
         function forceSubmit() {
-            const visible = document.querySelector('.container > div:not(.hidden)');
-            if (!visible) return;
-            if(visible.id === 'screen-write') document.getElementById('btn-submit-phrase').click();
-            if(visible.id === 'screen-draw') document.getElementById('btn-submit-draw').click();
-            if(visible.id === 'screen-guess') document.getElementById('btn-submit-guess').click();
+            const vis = document.querySelector('.container > div:not(.hidden)');
+            if(vis.id === 'screen-write') document.getElementById('btn-submit-phrase').click();
+            if(vis.id === 'screen-draw') document.getElementById('btn-submit-draw').click();
+            if(vis.id === 'screen-guess') document.getElementById('btn-submit-guess').click();
         }
 
-        // --- DESSIN ---
         const canvas = document.getElementById('paintCanvas'); const ctx = canvas.getContext('2d');
         let painting = false, brushColor = "#000000";
-        // Palette enrichie : Noir, Rouge, Bleu, Vert, Jaune, Rose, Cyan, Magenta, Orange, Marron, Gris, Blanc
-        const pal = [
-            "#000000", "#ff0000", "#0055aa", "#43b047", "#fff200", 
-            "#ff6b6b", "#00ffff", "#be2edd", "#ff9f43", "#8b4513", 
-            "#8395a7", "#ffffff"
-        ];
-        const palDiv = document.getElementById('palette');
-        palDiv.innerHTML = "";
+        const pal = ["#000000", "#7d4a03", "#ff0000", "#ff9c00", "#fff200", "#43b047", "#0055aa", "#be2edd", "#ff79c6", "#95a5a6", "#ffffff"];
         pal.forEach(c => {
             const dot = document.createElement('div'); dot.className = 'color-dot'; dot.style.background = c;
             dot.onclick = () => { brushColor = c; document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active')); dot.classList.add('active'); };
-            palDiv.appendChild(dot);
-            if(c === "#000000") dot.classList.add('active');
+            document.getElementById('palette').appendChild(dot);
         });
-        const getXY = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
-        };
-        canvas.onmousedown = canvas.ontouchstart = (e) => { painting = true; const pos = getXY(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); if(e.touches) e.preventDefault(); };
-        canvas.onmouseup = canvas.ontouchend = () => { painting = false; };
-        canvas.onmousemove = canvas.ontouchmove = (e) => { 
-            if (!painting) return; const pos = getXY(e);
-            ctx.lineWidth = document.getElementById('brush-size').value; ctx.lineCap = 'round'; ctx.strokeStyle = brushColor;
-            ctx.lineTo(pos.x, pos.y); ctx.stroke();
-            if(e.touches) e.preventDefault();
-        };
+
+        const getXY = (e) => { const rect = canvas.getBoundingClientRect(); const cx = e.touches ? e.touches[0].clientX : e.clientX; const cy = e.touches ? e.touches[0].clientY : e.clientY; return { x: cx - rect.left, y: cy - rect.top }; };
+        canvas.onmousedown = canvas.ontouchstart = (e) => { painting = true; const p = getXY(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+        canvas.onmouseup = canvas.ontouchend = () => painting = false;
+        canvas.onmousemove = canvas.ontouchmove = (e) => { if(!painting) return; const p = getXY(e); ctx.lineWidth = document.getElementById('brush-size').value; ctx.lineCap = 'round'; ctx.strokeStyle = brushColor; ctx.lineTo(p.x, p.y); ctx.stroke(); if(e.touches) e.preventDefault(); };
         window.setEraser = () => brushColor = "#ffffff";
-        window.clearCanvas = () => { ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,canvas.width, canvas.height); };
+        window.clearCanvas = () => ctx.clearRect(0,0,600,450);
 
-        // --- RÉSULTATS FINAUX ---
-        async function showResults() {
+        function showResults(books) {
             showScreen('screen-results');
-            const books = (await get(ref(db, 'scrum_phone/books'))).val();
             const gal = document.getElementById('results-gallery'); gal.innerHTML = "";
-            for (let bookId in books) {
-                const b = books[bookId];
-                let html = `<div class="result-card"><h3>🏎️ Le carnet de ${Object.values(players).length > 0 ? "la course" : ""}</h3>`;
-                for(let i=0; i<players.length; i++){
-                    const step = b[`step${i}`];
-                    if(!step) continue;
-                    if(i % 2 === 0) { // Texte
-                        html += `<div class="step-info">${i===0?'🏁 DÉPART':'🤔 RÉPONSE'} : <b>${step.author}</b> a écrit "${step.content}"</div>`;
-                    } else { // Dessin
-                        html += `<div class="step-info">🎨 DESSIN : <b>${step.author}</b> a illustré</div>
-                                 <img class="result-img" src="${step.content}">`;
-                    }
+            players.forEach(ownerId => {
+                let html = `<div class="result-card"><h3>L'histoire de ${players.indexOf(ownerId)+1}</h3>`;
+                for(let i=0; i<players.length; i++) {
+                    const holder = players[(players.indexOf(ownerId) + i) % players.length];
+                    const entry = books[ownerId]['step'+i];
+                    if(!entry) continue;
+                    if(i%2===0) html += `<p><b>${entry.author}</b> : "${entry.content}"</p>`;
+                    else html += `<p><b>${entry.author}</b> :</p><img src="${entry.content}" class="result-img">`;
                 }
-                html += `</div>`;
-                gal.innerHTML += html;
-            }
+                gal.innerHTML += html + `</div>`;
+            });
         }
-
-        // --- RESETS ---
-        document.getElementById('btn-reset-round').onclick = () => {
-            if(!confirm("Recommencer le round ?")) return;
-            if(tLoop) clearInterval(tLoop);
-            update(ref(db, 'scrum_phone'), { state: "LOBBY", timer: -1, books: null });
-        };
-        document.getElementById('btn-reset-hard').onclick = () => {
-            if(confirm("TOUT EFFACER ?")) {
-                if(tLoop) clearInterval(tLoop);
-                remove(ref(db, 'scrum_phone')).then(() => location.reload());
-            }
-        };
     </script>
 </body>
 </html>
