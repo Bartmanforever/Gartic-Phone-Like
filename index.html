@@ -248,18 +248,17 @@
                 inst.innerText = "Écris une phrase rigolote !";
                 document.getElementById('zone-write').classList.remove('hidden');
             } else {
-                // On récupère les données de l'étape PRÉCÉDENTE du livre que l'on a en main
-                const prevData = books[bookOwnerId]['step' + (currentStep - 1)];
+                // Récupération de l'étape précédente du livre en main
+                const prevStepKey = 'step' + (currentStep - 1);
+                const prevData = (books && books[bookOwnerId]) ? books[bookOwnerId][prevStepKey] : null;
                 
                 if(currentStep % 2 === 1) {
                     title.innerText = `TOUR ${currentStep+1} : DESSIN`;
-                    // Affiche l'auteur de l'étape précédente (currentStep - 1)
-                    inst.innerHTML = `De <b>${prevData?.author || "Inconnu"}</b> : "${prevData?.content || "..."}"`;
+                    inst.innerHTML = `De <b>${prevData?.author || "???"}</b> : "${prevData?.content || "..."}"`;
                     document.getElementById('zone-draw').classList.remove('hidden');
                 } else {
                     title.innerText = `TOUR ${currentStep+1} : DEVINETTE`;
-                    // Affiche l'auteur de l'étape précédente (celui qui a fait le dessin)
-                    inst.innerHTML = `Le dessin de <b>${prevData?.author || "Inconnu"}</b>`;
+                    inst.innerHTML = `Le dessin de <b>${prevData?.author || "???"}</b>`;
                     document.getElementById('img-to-guess').src = prevData?.content || "";
                     document.getElementById('zone-guess').classList.remove('hidden');
                 }
